@@ -3,7 +3,7 @@ processor distorsion
     input stream float audioIn;     //input
     output stream float audioOut;   //output
 
-    input event int gainParam [[ name: "Gain", min: 1, max: 100, init: 10, step:1, unit:"×"]];          //gain knob (1-100x)
+    input event int gainParam [[ name: "Gain", min: 1, max: 100, init: 50, step:1, unit:"×"]];          //gain knob (1-100x)
     input event float drive_pParam [[ name: "Treshold +", min: 0.1, max: 1.0, init: 0.5]];              //treshold + (0.1 do 1.0)
     input event float drive_nParam [[ name: "Treshold -", min: 0.1, max: 1.0, init: -0.5 ]];            //treshold - (0.1 do 1.0 ali -)
     input event float toneParam  [[ name: "Tone", min: 0.0, max: 1.0, init: 0.5 ]];                     //low-pass knob (0.0 do 1.0, sta vise to vise propusta)

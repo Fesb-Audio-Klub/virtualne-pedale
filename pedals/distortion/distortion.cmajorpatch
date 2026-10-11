@@ -8,8 +8,8 @@
     "source": "distortion.cmajor",
     "view": {
         "src":"index.js",
-        "width":300,
-        "height": 500,
+        "width": 400,
+        "height": 400,
         "resizable": false
     }
 }
