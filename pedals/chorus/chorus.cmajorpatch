@@ -1,0 +1,9 @@
+{
+    "CmajorVersion": 1,
+    "ID": "com.fak.chilly_chorus",
+    "version": "1.0",
+    "name": "Chilly chorus",
+    "description": "A simple chorus pedal brought to you by the FAK team.",
+    "isInstrument": false,
+    "source": "chorus.cmajor"
+}
