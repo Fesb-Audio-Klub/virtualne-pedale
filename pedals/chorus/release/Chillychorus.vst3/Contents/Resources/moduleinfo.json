@@ -1,0 +1,32 @@
+{
+  "Name": "Chilly chorus",
+  "Version": "1.0",
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB436D616A706C7567",
+      "Category": "Audio Module Class",
+      "Name": "Chilly chorus",
+      "Version": "1.0",
+      "SDKVersion": "VST 3.8.0",
+      "Sub Categories": [
+        "Fx"
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": []
+    },
+    {
+      "CID": "ABCDEF011234ABCD436D616A706C7567",
+      "Category": "Component Controller Class",
+      "Name": "Chilly chorus",
+      "Version": "1.0",
+      "SDKVersion": "VST 3.8.0",
+      "Sub Categories": [
+        "Fx"
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": []
+    }
+  ]
+}
