@@ -1,15 +1,19 @@
 //funkcije mappaju vrijednost knobova (0-1) u stvarnje vrijednosti
 namespace ValueScale {
-    float scaleDelay(float delay){  //bazni delay je 5ms - 30ms
-        return 5.0f + delay*25.0f;
+    float scaleDelay(float delay){  //bazni delay je 15ms - 30ms
+        return 15.0f + delay * 15.0f;
     }
 
-    float scaleRate (float rate){   //rate je 0.1Hz - 10Hz
-        return 0.1f + rate*9.9f;
+    float scaleRate (float rate){   //rate je 0.2Hz - 2.5Hz
+        return 0.2f + rate * 2.3f;
     }
 
-    float scaleDepth(float delay, float depth){ //depth ide od 0Hz (samo delay) do vrijednosti baznog delaya
-        return delay * depth;
+    float scaleDepth(float depth){ //depth 2ms - 8ms
+        return 2.0f + depth * 6.0f;
+    }
+
+    float scaleFeedback(float feedback){    //0%-20%
+        return feedback * 0.2f;
     }
 }
 
@@ -24,8 +28,7 @@ processor LFO {
     //trenutne vrijednosti parametara
     float delay = ValueScale::scaleDelay(0.5f);
     float rate = ValueScale::scaleRate(0.5f);
-    float depth = ValueScale::scaleDepth(delay, 0.5f);
-    float depth_stored = 0.5;
+    float depth = ValueScale::scaleDepth(0.5f);
 
     //vrijednosti koje se racunaju
     float phase = 0.0f;
@@ -34,15 +37,9 @@ processor LFO {
     float currentDelay = 0.0f;
 
     //event handleri
-    event delayIn (float newValue) { 
-        delay = ValueScale::scaleDelay(newValue);
-        depth = ValueScale::scaleDepth(delay, depth_stored);
-    }
+    event delayIn (float newValue) { delay = ValueScale::scaleDelay(newValue); }
     event rateIn (float newValue)  { rate = ValueScale::scaleRate(newValue); }
-    event depthIn (float newValue)  { 
-        depth = ValueScale::scaleDepth(delay, newValue); 
-        depth_stored = newValue;
-        }
+    event depthIn (float newValue)  { depth = ValueScale::scaleDepth(newValue); }
 
     void main(){
 
@@ -67,33 +64,42 @@ processor DelayLine{
     input stream float delayTimeIn;
     output stream float audioDelayedOut;
 
+    input event float feedbackIn;
+
+    float feedback = ValueScale::scaleFeedback(0.5f);
+
+    event feedbackIn (float newValue) { feedback = ValueScale::scaleFeedback(newValue); }
+
     void main(){
         let SAMPLE_RATE = float (processor.frequency);
 
-        float[12000] buffer;  //kruzni buffer
+        float[9000] buffer;  //kruzni buffer
         float sample_count = 0.0f;   //trenutna kolicina uzoraka
-        wrap<12000> writeIndex = 0;  //trenutna pozicija za pisanje u buffer
+        wrap<9000> writeIndex = 0;  //trenutna pozicija za pisanje u buffer
         float readIndex = 0.0f; //trenutna pozicija za citanje iz buffera
         
         //pomocne varijable za lerp
-        wrap<12000> index_int = 0;
-        wrap<12000> index_next = 0;
+        wrap<9000> index_int = 0;
+        wrap<9000> index_next = 0;
         float frac = 0.0f;
         float sample = 0.0f;
 
         loop{
             sample_count = delayTimeIn * (SAMPLE_RATE / 1000.0f);
-            readIndex = wrap (float (writeIndex) - sample_count, float (12000));  //pozicija udaljena za trenutni broj sampleova od trenutne pozicije zapisivanja
+            readIndex = wrap (float (writeIndex) - sample_count, float (9000));  //pozicija udaljena za trenutni broj sampleova od trenutne pozicije zapisivanja
 
             buffer[writeIndex] = audioIn;
             
             //linearna interpolacija (u slucaju da index uzorka nije cijeli broj, stvara uzorak iz dva susjedna uzorka) 
-            index_int = wrap<12000> (floor(readIndex));
-            index_next = wrap<12000> (index_int + 1);
+            index_int = wrap<9000> (floor(readIndex));
+            index_next = wrap<9000> (index_int + 1);
             frac = readIndex - float(index_int);
             sample = std::intrinsics::lerp(buffer[index_int], buffer[index_next], frac);
 
             audioDelayedOut <- sample;
+
+            buffer[writeIndex] = audioIn + sample * feedback;   //feedback
+
             writeIndex ++;
             advance();
         }
@@ -133,8 +139,9 @@ graph ChorusEffect [[main]] {
 
     //svi potrebni knobovi
     input event float delayParam [[name:"Delay", min:0, max:1, init: 0.5]];
-    input event float rateParam [[ name: "Rate", min: 0, max: 1, init: 0.5]];
     input event float depthParam [[ name: "Depth", min: 0, max: 1, init: 0.5]];
+    input event float rateParam [[ name: "Rate", min: 0, max: 1, init: 0.5]];
+    input event float feedbackParam [[ name: "Feedback", min: 0, max: 1, init: 0.5]];
     input event float blendParam [[ name: "Blend", min: 0, max: 1, init: 0.5]];
     input event float levelParam [[ name: "Level", min: 0, max: 1, init: 0.5]];
 
@@ -149,6 +156,7 @@ graph ChorusEffect [[main]] {
         delayParam -> lfo.delayIn;
         rateParam -> lfo.rateIn;
         depthParam -> lfo.depthIn;
+        feedbackParam -> delayLine.feedbackIn;
         blendParam -> signalMixer.blendIn;
         levelParam -> signalMixer.levelIn;
 
