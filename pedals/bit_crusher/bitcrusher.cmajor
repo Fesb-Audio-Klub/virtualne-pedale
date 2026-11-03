@@ -1,0 +1,72 @@
+processor BitDepthReducer {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event int resIn;
+
+    int depth = 10;
+
+    event resIn (int newValue) { depth = newValue; }
+
+    void main() {
+        int steps = 1 << 10;
+        float sample = 0.0f;
+
+        loop {
+            steps = 1 << depth;
+            sample = float(floor(streamIn * steps + 0.5)) / float (steps);
+            streamOut <- 4* sample;
+            advance();
+        }
+    }
+}
+
+processor LowPassFilter {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event float toneIn;
+
+    float alpha = 0.5f * 0.8f + 0.05f;
+
+    event toneIn (float newValue) { alpha = newValue * 0.4f + 0.1f; }
+
+    void main() {
+        float lastSample = 0;
+        float sample = 0;
+        loop {
+            sample = streamIn;
+            sample =  lastSample + alpha * (sample - lastSample);   
+            lastSample = sample;
+
+            streamOut <- sample;
+            advance();
+        }
+
+    }
+}
+
+graph BitCrusher  [[ main ]]
+{
+    input stream float audioIn;
+    output stream float audioOut;
+
+    //potrebne kontrole
+    input event int resolutionParam [[ name:"Resolution", min: 4, max: 8, step: 1, init: 6 ]];
+    input event float lowPassParam [[ name:"Tone", min: 0.0f, max: 1.0f, init: 0.5f]];
+
+    node bdr = BitDepthReducer;
+    node lpf = LowPassFilter;
+
+    connection {
+        //knobovi
+        resolutionParam -> bdr.resIn;
+        lowPassParam -> lpf.toneIn;
+
+        //meduveze
+        audioIn -> bdr.streamIn;
+        bdr.streamOut -> lpf.streamIn;
+        lpf.streamOut -> audioOut;
+    }
+
+}
