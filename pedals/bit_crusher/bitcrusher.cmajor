@@ -3,25 +3,40 @@ processor BitDepthReducer {
     output stream float streamOut;
 
     input event int resIn;
+    input event bool ditherIn;
 
-    int depth = 10;
+    std::random::RNG rng;
 
-    event resIn (int newValue) { depth = newValue; }
+    float generateDitherSample(int steps){  //funkcija generira "dither noise" koji stvara prirodniji zvuk pri niskom broju bitova
+        return std::random::getBipolar(rng) * (1.0f / float(steps));
+    }
+
+    int depth = 6;
+    int steps = 1 << 6;
+    bool dither = false;
+
+    event resIn (int newValue) { 
+        depth = newValue;
+        steps = 1 << depth; 
+    }
+
+    event ditherIn (bool newValue) { dither = newValue; }
 
     void main() {
-        int steps = 1 << 10;
         float sample = 0.0f;
+        float inputSample = 0.0f;
 
         loop {
-            steps = 1 << depth;
-            sample = float(floor(streamIn * steps + 0.5)) / float (steps);
-            streamOut <- 4* sample;
+            if(abs(streamIn) <= 0.005f) inputSample = 0.0f; //utisavanje tihin inputa (moguce da tihi input forsira prevelik skok radi greske kvantizacije)
+            else inputSample = streamIn + ((dither == true) ? 1.0f : 0.0f) * generateDitherSample(steps);   //primjenjuje dither
+            sample = float(floor(inputSample * steps + 0.5)) / float (steps);   //rekonstrukcija uzorka koristeci odabran broj bitova
+            streamOut <- sample;
             advance();
         }
     }
 }
 
-processor LowPassFilter {
+processor LowPassFilter {   //bez ovoga je prakticki nemoguce, zvuci grozno
     input stream float streamIn;
     output stream float streamOut;
 
@@ -53,7 +68,8 @@ graph BitCrusher  [[ main ]]
 
     //potrebne kontrole
     input event int resolutionParam [[ name:"Resolution", min: 4, max: 8, step: 1, init: 6 ]];
-    input event float lowPassParam [[ name:"Tone", min: 0.0f, max: 1.0f, init: 0.5f]];
+    input event float lowPassParam [[ name:"Tone", min: 0.0f, max: 1.0f, init: 0.5f ]];
+    input event bool ditherParam [[ name:"Dithering", init: false, boolean: true ]];
 
     node bdr = BitDepthReducer;
     node lpf = LowPassFilter;
@@ -62,6 +78,7 @@ graph BitCrusher  [[ main ]]
         //knobovi
         resolutionParam -> bdr.resIn;
         lowPassParam -> lpf.toneIn;
+        ditherParam -> bdr.ditherIn;
 
         //meduveze
         audioIn -> bdr.streamIn;
