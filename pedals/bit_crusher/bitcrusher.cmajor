@@ -1,3 +1,22 @@
+processor Gain {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event float gainIn;
+
+    float gain = 1.0f;
+
+    event gainIn (float newValue) { gain = newValue; }
+
+    void main(){
+        loop {
+            streamOut <- gain * streamIn;
+            advance();
+        }
+    }
+
+}
+
 processor BitDepthReducer {
     input stream float streamIn;
     output stream float streamOut;
@@ -67,21 +86,25 @@ graph BitCrusher  [[ main ]]
     output stream float audioOut;
 
     //potrebne kontrole
+    input event float gainParam [[ name:"Gain", min: 1.0f, max: 4.0f, init: 2.0f ]];
     input event int resolutionParam [[ name:"Resolution", min: 4, max: 8, step: 1, init: 6 ]];
     input event float lowPassParam [[ name:"Tone", min: 0.0f, max: 1.0f, init: 0.5f ]];
     input event bool ditherParam [[ name:"Dithering", init: false, boolean: true ]];
 
+    node gain = Gain;
     node bdr = BitDepthReducer;
     node lpf = LowPassFilter;
 
     connection {
         //knobovi
+        gainParam -> gain.gainIn;
         resolutionParam -> bdr.resIn;
         lowPassParam -> lpf.toneIn;
         ditherParam -> bdr.ditherIn;
 
         //meduveze
-        audioIn -> bdr.streamIn;
+        audioIn -> gain.streamIn;
+        gain.streamOut-> bdr.streamIn;
         bdr.streamOut -> lpf.streamIn;
         lpf.streamOut -> audioOut;
     }
