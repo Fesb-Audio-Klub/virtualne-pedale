@@ -201,11 +201,11 @@ class View extends HTMLElement {
 //inicijalni setup za knobove
     setupKnobs() { 
         const knobInfo = [  //array koji sadrzi informaciej o svim knobovima (id, endpoint ime, vrijednosti)
-            { id: 'gainKnob', endpoint: 'gainParam', min: 1, max: 100, isInt: true, defaultVal: 50 },
+            { id: 'gainKnob', endpoint: 'gainParam', min: 0.0, max: 1.0, isInt: false, defaultVal: 0.5 },
             { id: 'toneKnob', endpoint: 'toneParam', min: 0.0, max: 1.0, isInt: false, defaultVal: 0.5 },
-            { id: 'levelKnob', endpoint: 'volumeParam', min: 0, max: 100, isInt: true, defaultVal: 50 },
-            { id: 'driveKnob_p', endpoint: 'drive_pParam', min: 0.1, max: 1.0, isInt: false, defaultVal: 0.5 },
-            { id: 'driveKnob_n', endpoint: 'drive_nParam', min: 0.1, max: 1.0, isInt: false, defaultVal: 0.5 }
+            { id: 'levelKnob', endpoint: 'volumeParam', min: 0.0, max: 1.0, isInt: false, defaultVal: 0.5 },
+            { id: 'driveKnob_p', endpoint: 'drivePositiveParam', min: 0.0, max: 1.0, isInt: false, defaultVal: 0.5 },
+            { id: 'driveKnob_n', endpoint: 'driveNegativeParam', min: 0.0, max: 1.0, isInt: false, defaultVal: 0.5 }
         ];
 
         knobInfo.forEach(knob => {
@@ -269,7 +269,7 @@ class View extends HTMLElement {
             }
 //patchu salje podatke o eventu
             if (this.patchConnection) {
-                this.patchConnection.sendEventOrValue('softClip', isOn);
+                this.patchConnection.sendEventOrValue('softClipParam', isOn);
             }
         });
 //u slucaju vanjske promjene

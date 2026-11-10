@@ -1,59 +1,103 @@
-processor distorsion
+processor Gain {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event float gainIn;
+
+    float gain = 0.5f;
+
+    event gainIn (float newValue) { gain = 1.0f + newValue * 99.0f; }
+
+    void main(){
+        loop{
+            streamOut <- gain * streamIn;
+            advance();
+        }
+    }
+}
+
+processor SignalClipper {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event float drivePositiveIn;
+    input event float driveNegativeIn;
+    input event bool softClipIn;
+
+    float drive_p = 0.5f;
+    float drive_n = -0.5f;
+    bool soft_clip = false;
+
+    event drivePositiveIn (float newValue) { drive_p = 0.1f + 0.9f * newValue; }
+    event driveNegativeIn (float newValue) {drive_n = -0.1f - 0.9f * newValue; }
+    event softClipIn(bool newValue) {soft_clip = newValue; }
+
+    void main() {
+        float sample = 0.0f;
+        loop{
+            sample = streamIn;
+            if(soft_clip) sample = tanh(sample);
+            else if (sample >= drive_p) sample = drive_p;
+            else if (sample <= drive_n) sample = drive_n;
+            streamOut <- sample;
+            advance();
+        }
+    }
+}
+
+processor LowPassFilter {
+    input stream float streamIn;
+    output stream float streamOut;
+
+    input event float toneIn;
+    input event float volumeIn;
+
+    float alpha = 0.45f;
+    float volume = 0.5f;
+
+    event toneIn (float newValue) { alpha = newValue * 0.8f + 0.05f; }
+    event volumeIn (float newValue) { volume = newValue; }
+
+    void main(){
+        float sample = 0.0f;
+        float last_sample = 0.0f;
+        loop{
+            sample = last_sample + alpha * (streamIn - last_sample);
+            streamOut <- sample * volume;
+            last_sample = sample;
+            advance();
+        }
+    }
+}
+
+
+graph Distorsion [[ main ]]
 {
     input stream float audioIn;     //input
     output stream float audioOut;   //output
 
-    input event int gainParam [[ name: "Gain", min: 1, max: 100, init: 50, step:1, unit:"×"]];          //gain knob (1-100x)
-    input event float drive_pParam [[ name: "Treshold +", min: 0.1, max: 1.0, init: 0.5]];              //treshold + (0.1 do 1.0)
-    input event float drive_nParam [[ name: "Treshold -", min: 0.1, max: 1.0, init: -0.5 ]];            //treshold - (0.1 do 1.0 ali -)
-    input event float toneParam  [[ name: "Tone", min: 0.0, max: 1.0, init: 0.5 ]];                     //low-pass knob (0.0 do 1.0, sta vise to vise propusta)
-    input event float volumeParam[[ name: "Volume", min: 0, max: 100, init: 50 , unit:"%", step:1]];    //volume (0-100%)
-    input event bool softClip [[name:"Soft clipping", boolean, init:false]];                            //soft clipping prekidac za "overdrive" efekt
+    input event float gainParam [[ name: "Gain", min: 0.0f, max: 1.0f, init: 0.5f]];          //gain knob (1-100x)
+    input event float drivePositiveParam [[ name: "Treshold +", min: 0.0f, max: 1.0f, init: 0.5f]];              //treshold + (0.1 do 1.0)
+    input event float driveNegativeParam [[ name: "Treshold -", min: 0.0f, max: 1.0f, init: 0.5f]];            //treshold - (0.1 do 1.0 ali -)
+    input event float toneParam  [[ name: "Tone", min: 0.0f, max: 1.0f, init: 0.5f]];                     //low-pass knob (0.0 do 1.0, sta vise to vise propusta)
+    input event bool softClipParam [[name:"Soft clipping", boolean, init:false]];                            //soft clipping prekidac za "overdrive" efekt
+    input event float volumeParam [[name:"Volume", min: 0.0f, max: 1.0f, init: 0.5f]];
 
-    int gain = 10;
-    float drive_p = 0.5f;
-    float drive_n = -0.5f;
-    float tone = 0.5f;
-    float volume= 0.5;
-    bool soft_clip = false;
+    node gain = Gain;
+    node clip = SignalClipper;
+    node lpf = LowPassFilter;
     
-    float lastSample = 0.0f;    //pamti prosli sample za rad low pass filtera
-//eventovi handleaju promjene parametara
-    event gainParam (int newValue)  { gain = newValue; }
-    event drive_pParam (float newValue)  { drive_p = newValue; }
-    event drive_nParam (float newValue)  { drive_n = -newValue; }
-    event toneParam (float newValue)   { tone = newValue; }
-    event volumeParam (float newValue) { volume = newValue/100; }
-    event softClip (bool newValue) { soft_clip = newValue; }
-
-    void main()
-    {
-        loop
-        {
-            float sample = audioIn; //trenutni audio sample
-//1. STAGE - gain
-            sample = sample * gain; 
-//2. STAGE - clipping
-            if(soft_clip) sample = tanh(sample);    //soft-clipping putem tanh (dosta linearno, pri visim vrijednostima ima trazeni efekt)
-            else{                                   //hard clipping, ovde se gleda drive treshold
-                if (sample > drive_p)
-                {
-                    sample = drive_p;
-                }
-                else if (sample < drive_n)
-                {
-                    sample = drive_n;
-                }
-            }
-//3. STAGE - low pass filter
-            float alpha = tone * 0.8f + 0.05f;                      //jacina filtera, izmedu 0.05 i 0.85 tako da se izbjegnu oba ekstrema
-            sample = lastSample + alpha * (sample - lastSample);    //primjenjuje se filter
-            lastSample = sample;
-//4. STAGE - volume
-            sample = sample * volume;
-
-            audioOut <- sample; //modificirani sample ide na output
-            advance();  //prelazi na iduci sample
-        }
+    connection{
+        audioIn -> gain.streamIn;
+        gain.streamOut -> clip.streamIn;
+        clip.streamOut -> lpf.streamIn;
+        lpf.streamOut -> audioOut;
+        
+        gainParam -> gain.gainIn;
+        softClipParam -> clip.softClipIn;
+        drivePositiveParam -> clip.drivePositiveIn;
+        driveNegativeParam -> clip.driveNegativeIn;
+        toneParam -> lpf.toneIn;
+        volumeParam -> lpf.volumeIn;
     }
 }
